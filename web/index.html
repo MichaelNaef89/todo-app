@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+    <title>To-do</title>
+
+    <meta name="description" content="Persönliches To-do-Cockpit für Business und Privat." />
+    <meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16181c" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="To-do" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="icon" href="./icons/icon-192.png" />
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+
+  <body>
+    <!-- Login -->
+    <div id="loginScreen" class="login-screen" hidden>
+      <form id="loginForm" class="login-card">
+        <div class="login-brand">To-do</div>
+        <p class="login-sub">Business &amp; Privat</p>
+        <input
+          type="password"
+          id="loginPassword"
+          class="login-input"
+          placeholder="Passwort"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" class="btn btn-primary login-submit">Anmelden</button>
+        <p id="loginError" class="login-error" hidden></p>
+      </form>
+    </div>
+
+    <!-- App -->
+    <div id="appShell" class="app-shell" hidden>
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+          <span class="brand">To-do</span>
+          <button id="themeToggle" class="icon-btn" title="Design wechseln" aria-label="Design wechseln">◐</button>
+        </div>
+
+        <nav class="nav" id="mainNav" aria-label="Hauptnavigation">
+          <button class="nav-item" data-view="today"><span class="nav-ico">☀</span>Heute</button>
+          <button class="nav-item" data-view="inbox"><span class="nav-ico">▤</span>Inbox</button>
+          <button class="nav-item" data-view="planned"><span class="nav-ico">▦</span>Geplant</button>
+          <button class="nav-item" data-view="week"><span class="nav-ico">▥</span>Woche</button>
+
+          <div class="nav-section area-business">
+            <button class="nav-section-label" data-view="business">Business</button>
+            <button class="nav-add" data-add-project="business" title="Business-Projekt anlegen">+</button>
+          </div>
+          <div class="nav-projects" id="businessProjects"></div>
+
+          <div class="nav-section area-privat">
+            <button class="nav-section-label" data-view="privat">Privat</button>
+            <button class="nav-add" data-add-project="privat" title="Privat-Projekt anlegen">+</button>
+          </div>
+          <div class="nav-projects" id="privatProjects"></div>
+
+          <div class="nav-gap"></div>
+          <button class="nav-item" data-view="waiting"><span class="nav-ico">⏳</span>Warten auf</button>
+          <button class="nav-item" data-view="done"><span class="nav-ico">✓</span>Erledigt</button>
+          <button class="nav-item" data-view="search"><span class="nav-ico">⌕</span>Suche</button>
+        </nav>
+
+        <button id="logoutBtn" class="logout-btn">Abmelden</button>
+      </aside>
+
+      <div class="scrim" id="scrim" hidden></div>
+
+      <div class="content-col">
+        <header class="mobile-topbar" id="mobileTopbar">
+          <button id="menuToggle" class="icon-btn" aria-label="Menü">☰</button>
+          <span id="mobileTitle" class="mobile-title">Heute</span>
+          <button id="mobileSearchBtn" class="icon-btn" aria-label="Suche">⌕</button>
+        </header>
+
+        <div class="quickadd-bar">
+          <span class="quickadd-ico">+</span>
+          <input
+            id="quickAddInput"
+            class="quickadd-input"
+            type="text"
+            placeholder="Neue Aufgabe… z. B. „Präsentation morgen 14 Uhr P1“"
+            autocomplete="off"
+          />
+          <div class="quickadd-area" id="quickAddArea" role="radiogroup" aria-label="Bereich">
+            <button type="button" class="area-pill area-business active" data-area="business">Business</button>
+            <button type="button" class="area-pill area-privat" data-area="privat">Privat</button>
+          </div>
+        </div>
+
+        <main class="main" id="main">
+          <div id="screen" class="screen"></div>
+        </main>
+      </div>
+    </div>
+
+    <div class="overlay" id="overlay" hidden></div>
+    <aside class="slideover" id="taskDetail" hidden></aside>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="./api.js"></script>
+    <script src="./quickadd.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
