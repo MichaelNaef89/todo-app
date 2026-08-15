@@ -1,7 +1,7 @@
 /* Service Worker - cached nur das App-Shell (HTML/CSS/JS), keine Aufgabendaten.
    Server/SQLite ist die alleinige Datenquelle, /api/* wird nie gecacht. */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `todo-shell-${VERSION}`;
 
 const SHELL = [
@@ -60,16 +60,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Netzwerk zuerst: die App wird noch aktiv weiterentwickelt, eine veraltete
+  // gecachte app.js/styles.css soll nie länger als bis zum nächsten Laden
+  // "kleben" bleiben. Cache dient nur als Offline-Fallback.
   event.respondWith(
     caches.open(SHELL_CACHE).then(async (cache) => {
-      const hit = await cache.match(req);
-      const net = fetch(req)
-        .then((res) => {
-          if (res && res.ok) cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => hit);
-      return hit || net;
+      try {
+        const res = await fetch(req);
+        if (res && res.ok) cache.put(req, res.clone());
+        return res;
+      } catch {
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        throw new Error('offline und nicht im Cache');
+      }
     })
   );
 });
