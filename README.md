@@ -70,9 +70,12 @@ die UI erreichbar** (siehe oben) – die Spalten/die Logik in
 | GET | `/api/search?q=` | Suche über Titel/Notizen/Tags/Personen |
 | GET | `/api/counts` | Kennzahlen für die Heute-Ansicht |
 
-`view`-Werte für `GET /api/tasks`: `today`, `planned`, `inbox`, `waiting`
+`view`-Werte für `GET /api/tasks`: `today`, `planned`, `inbox`/`waiting`
 (API vorhanden, UI dafür aktuell entfernt), `done`, `backlog`, `week`
-(braucht zusätzlich `week_start`, Montag als ISO-Datum).
+(braucht zusätzlich `week_start`, Montag als ISO-Datum). Die Sidebar-Ansicht
+"Alle" nutzt keinen eigenen `view`-Wert, sondern einfach `?status=open` ohne
+`view` – zeigt dadurch wirklich jede offene Aufgabe aus Business und Privat,
+unabhängig vom Datum (ersetzt die frühere separate Inbox-Ansicht).
 
 ## Neue Aufgabe
 

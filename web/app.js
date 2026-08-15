@@ -219,7 +219,7 @@ function renderProjectNavList(sel, projects) {
 }
 
 const VIEW_TITLES = {
-  today: 'Heute', inbox: 'Inbox', planned: 'Geplant', week: 'Woche',
+  today: 'Heute', all: 'Alle', planned: 'Geplant', week: 'Woche',
   business: 'Business', privat: 'Privat', done: 'Erledigt', search: 'Suche',
 };
 
@@ -249,7 +249,7 @@ async function renderCurrentView() {
   try {
     switch (state.view) {
       case 'today': return await renderToday();
-      case 'inbox': return await renderInbox();
+      case 'all': return await renderAll();
       case 'planned': return await renderPlanned();
       case 'week': return await renderWeek();
       case 'business': return await renderArea('business');
@@ -267,15 +267,17 @@ async function renderCurrentView() {
 
 // ------------------------------------------------------------- Task-Rows
 
-function taskRowHTML(task, { showProject = true } = {}) {
+function taskRowHTML(task, { showProject = true, showArea = false } = {}) {
   const chips = [];
   const overdue = task.status === 'open' && task.due_date && task.due_date < todayISO();
   if (task.due_date) {
     chips.push(`<span class="chip ${overdue ? 'chip-overdue' : ''}">${escapeHtml(fmtDate(task.due_date))}${task.due_time ? ' · ' + task.due_time : ''}</span>`);
   }
-  if (showProject && task.project_id) {
-    const p = projectById(task.project_id);
-    if (p) chips.push(`<span class="chip"><span class="area-dot area-${p.area}"></span> ${escapeHtml(p.name)}</span>`);
+  const project = task.project_id ? projectById(task.project_id) : null;
+  if (showProject && project) {
+    chips.push(`<span class="chip"><span class="area-dot area-${project.area}"></span> ${escapeHtml(project.name)}</span>`);
+  } else if (showArea) {
+    chips.push(`<span class="chip"><span class="area-dot area-${task.area}"></span> ${AREA_LABEL[task.area]}</span>`);
   }
   if (task.priority <= 2) {
     chips.push(`<span class="chip chip-priority-${task.priority}">${PRIORITY_LABEL[task.priority]}</span>`);
@@ -431,17 +433,17 @@ async function renderToday() {
   if (wennZeit.length) mount('#listWennZeit', wennZeit);
 }
 
-// ------------------------------------------------------------------ Inbox
+// -------------------------------------------------------------------- Alle
 
-async function renderInbox() {
-  const tasks = await API.tasks({ view: 'inbox' });
+async function renderAll() {
+  const tasks = await API.tasks({ status: 'open' });
   const byId = indexById(tasks);
   $('#screen').innerHTML = `
-    <div class="section-title">Inbox <span class="count">${tasks.length}</span></div>
+    <div class="section-title">Alle offenen Aufgaben <span class="count">${tasks.length}</span></div>
     <div id="list"></div>
   `;
   const el = $('#list');
-  el.innerHTML = taskListHTML(tasks, { showProject: false });
+  el.innerHTML = taskListHTML(tasks, { showProject: true, showArea: true });
   attachTaskListEvents(el, byId, { onReorder: persistSortOrder });
 }
 
@@ -784,7 +786,7 @@ function bindNewTaskFormEvents(task) {
 
 function projectOptionsHTML(area, selectedId) {
   const projects = state.projects[area] || [];
-  const opts = ['<option value="">Kein Projekt (Inbox)</option>'];
+  const opts = ['<option value="">Kein Projekt</option>'];
   projects.forEach((p) => {
     const prefix = p.parent_project_id ? '— ' : '';
     opts.push(`<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${prefix}${escapeHtml(p.name)}</option>`);
