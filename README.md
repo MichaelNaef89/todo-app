@@ -94,11 +94,22 @@ Manuell verifiziert (Playwright, headless Chromium): Login, Quick-Add mit
 NLP-Parsing, Projekt anlegen, Wochenansicht, Aufgabe erledigen/wieder
 öffnen, Dark Mode, mobile Drawer-Navigation – keine Konsolenfehler.
 
-## Deployment auf den Pi5 (analog Stempeluhr, noch nicht eingerichtet)
+## Deployment auf dem Pi5
 
-Vorschlag: eigener systemd-Dienst `todo-app.service` auf einem neuen lokalen
-Port (z. B. 8003), zusätzlich zu `stempeluhr-pwa.service` (Port 8002). Da
-`tailscale serve` bereits Port 8002 auf `https://pi5.tail0fe4c7.ts.net/`
-mapped, braucht die To-do-App einen eigenen HTTPS-Port im Tailnet, z. B.
-`tailscale serve --https=8443 http://127.0.0.1:8003`. Wird eingerichtet,
-sobald die App lokal fertig getestet ist.
+- **Repo**: <https://github.com/MichaelNaef89/todo-app> (öffentlich, keine Secrets enthalten)
+- **Pi5**: `/home/pi/todo-app`, venv unter `/home/pi/todo-app/venv`
+- **Dienst**: `todo-app.service` → `venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8003`
+- **HTTPS**: `tailscale serve --https=8443` proxyt Port 8003 auf `https://pi5.tail0fe4c7.ts.net:8443/`
+  (eigener Port, weil `stempeluhr-pwa.service` bereits den Haupt-HTTPS-Port
+  443 von `pi5.tail0fe4c7.ts.net` belegt – beide Dienste laufen parallel)
+- **Workflow**:
+  ```bash
+  # auf dem PC
+  git push
+
+  # auf dem Pi
+  cd /home/pi/todo-app
+  git pull
+  venv/bin/pip install -r server/requirements.txt   # nur nötig, wenn sich requirements.txt geändert hat
+  sudo systemctl restart todo-app.service
+  ```
