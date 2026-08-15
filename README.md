@@ -1,14 +1,20 @@
 # To-do – Business & Privat
 
-Persönliches To-do-Cockpit: klare Trennung Business/Privat, gemeinsame
-Heute-Ansicht, Wochenplanung, schnelle Erfassung über ein einfaches
-Formular (Titel, Notiz, Bereich, Datum).
+Bewusst minimales persönliches Cockpit mit nur drei Ansichten:
 
-Bewusst schlank gehalten: "Warten auf", Wiederholungsregeln, Tags und Link
-sind aus der Oberfläche entfernt (zu viele Konzepte auf einmal). Das
-Backend/Datenmodell unterstützt sie weiterhin (siehe unten) – falls sich das
-später als nötig erweist, lässt sich die UI dafür ohne Migration
-nachrüsten.
+- **Alle** – jede offene Aufgabe, Business und Privat zusammen, unabhängig vom Datum
+- **Ausleihe** – Produkte, die verliehen sind (Produkt, Person, Datum, Notiz)
+- **Erledigt** – Archiv abgeschlossener Aufgaben
+
+Eine Aufgabe hat nur Titel, Notiz, Bereich, Fälligkeitsdatum/Uhrzeit,
+Priorität und optional Verantwortlich/Unteraufgaben/Fokus-Markierung - kein
+Projekt-Konzept, keine separaten Heute-/Geplant-/Wochen-Ansichten mehr. Das
+war anfangs alles da, ist aber schrittweise auf Wunsch entfernt worden, weil
+es im Alltag zu viele Konzepte gleichzeitig waren. Das Backend/Datenmodell
+unterstützt vieles davon (Projekte, "Warten auf", Wiederholungsregeln, Tags,
+Link, Wochenansicht) weiterhin unter der Haube (siehe unten) – falls sich
+das später als nötig erweist, lässt sich die UI dafür ohne Migration
+nachrüsten, siehe Git-Historie für die früheren UI-Versionen.
 
 ## Architektur
 
@@ -56,9 +62,10 @@ sort_order, archived.
 lent_date, returned_date (NULL solange draussen), notes. Kein geplantes
 Rückgabedatum, bewusst minimal (Produkt/Person/Datum + Notiz).
 
-**Wiederholungsregeln, "Warten auf", Tags und Link sind aktuell nicht über
-die UI erreichbar** (siehe oben) – die Spalten/die Logik in
-`server/recurrence.py` existieren weiter, falls das später gebraucht wird.
+**Projekte, Wiederholungsregeln, "Warten auf", Tags und Link sind aktuell
+nicht über die UI erreichbar** (siehe oben) – die Tabellen/API/Logik
+(inkl. `server/recurrence.py`) existieren weiter, falls das später
+gebraucht wird.
 
 ## API (server/main.py)
 
@@ -77,12 +84,10 @@ die UI erreichbar** (siehe oben) – die Spalten/die Logik in
 | PUT/DELETE | `/api/loans/{id}` | Ausleihe ändern/löschen |
 | POST | `/api/loans/{id}/return`, `/api/loans/{id}/unreturn` | Als zurückgegeben markieren / rückgängig machen |
 
-`view`-Werte für `GET /api/tasks`: `today`, `planned`, `inbox`/`waiting`
-(API vorhanden, UI dafür aktuell entfernt), `done`, `backlog`, `week`
-(braucht zusätzlich `week_start`, Montag als ISO-Datum). Die Sidebar-Ansicht
-"Alle" nutzt keinen eigenen `view`-Wert, sondern einfach `?status=open` ohne
-`view` – zeigt dadurch wirklich jede offene Aufgabe aus Business und Privat,
-unabhängig vom Datum (ersetzt die frühere separate Inbox-Ansicht).
+`view`-Werte für `GET /api/tasks`: `today`, `planned`, `inbox`/`waiting`,
+`done`, `backlog`, `week` – alle API-seitig vorhanden, UI dafür aktuell
+komplett entfernt (nur `all` bzw. eigentlich einfach `?status=open` ohne
+`view`, und `done`, sind noch verdrahtet).
 
 ## Neue Aufgabe
 
@@ -90,9 +95,7 @@ Der Button "+ Neue Aufgabe" oben öffnet ein schlankes Fenster mit nur
 Titel, Notiz, Bereich und Fälligkeitsdatum (keine Uhrzeit, keine
 Priorität, keine Unteraufgaben) – Priorität landet auf P3, alles Weitere
 lässt sich danach im vollen Bearbeiten-Formular (Klick auf die Aufgabe)
-ergänzen. Es gab hier vorher eine Freitext-Schnellerfassung mit deutschem
-NLP-Parser ("Präsentation morgen 14 Uhr P1"); die wurde bewusst durch
-dieses einfachere, feldbasierte Fenster ersetzt.
+ergänzen.
 
 ## Tests
 
@@ -100,9 +103,10 @@ dieses einfachere, feldbasierte Fenster ersetzt.
 python -c "import sys; sys.path.insert(0,'server'); from auth import hash_password; print(hash_password('x'))"
 ```
 
-Manuell verifiziert (Playwright, headless Chromium): Login, Quick-Add mit
-NLP-Parsing, Projekt anlegen, Wochenansicht, Aufgabe erledigen/wieder
-öffnen, Dark Mode, mobile Drawer-Navigation – keine Konsolenfehler.
+Manuell verifiziert (Playwright, headless Chromium): Login, neue Aufgabe
+über das schlanke Formular, Bearbeiten-Formular ohne Projekt-Feld, Aufgabe
+erledigen → verschwindet aus Alle/erscheint in Erledigt, Ausleihe anlegen –
+keine Konsolenfehler.
 
 ## Deployment auf dem Pi5
 
