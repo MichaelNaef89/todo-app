@@ -321,7 +321,6 @@ input:focus, textarea:focus, select:focus {
 .quickadd-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
   padding: 12px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -329,26 +328,10 @@ input:focus, textarea:focus, select:focus {
   top: 0;
   z-index: 4;
 }
-.quickadd-ico { color: var(--text-faint); font-size: 16px; }
-.quickadd-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 8px 2px;
-  font-size: 15px;
+.new-task-btn {
+  padding: 9px 16px;
+  font-size: 14px;
 }
-.quickadd-input:focus { box-shadow: none; }
-.quickadd-area { display: flex; gap: 4px; }
-.area-pill {
-  border: 1px solid var(--border);
-  background: transparent;
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 12.5px;
-  color: var(--text-dim);
-}
-.area-pill.area-business.active { background: var(--accent-business-bg); border-color: var(--accent-business); color: var(--accent-business); }
-.area-pill.area-privat.active { background: var(--accent-privat-bg); border-color: var(--accent-privat); color: var(--accent-privat); }
 
 .main {
   flex: 1;

@@ -7,7 +7,7 @@ const PRIORITY_LABEL = { 1: 'P1', 2: 'P2', 3: 'P3', 4: 'P4' };
 
 const state = {
   view: 'today',
-  quickAddArea: 'business',
+  newTaskArea: 'business',
   currentProjectId: null,
   weekStart: mondayOf(new Date()),
   projects: { business: [], privat: [] },
@@ -171,32 +171,7 @@ function bindStaticEvents() {
     }
   });
 
-  $('#quickAddArea').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-area]');
-    if (!btn) return;
-    state.quickAddArea = btn.dataset.area;
-    $all('.area-pill', $('#quickAddArea')).forEach((b) => b.classList.toggle('active', b === btn));
-  });
-
-  $('#quickAddInput').addEventListener('keydown', async (e) => {
-    if (e.key !== 'Enter') return;
-    const raw = e.target.value.trim();
-    if (!raw) return;
-    const parsed = QuickAdd.parse(raw);
-    if (!parsed.title) return;
-    await withBusy(async () => {
-      await API.createTask({
-        title: parsed.title,
-        area: state.quickAddArea,
-        due_date: parsed.due_date,
-        due_time: parsed.due_time,
-        priority: parsed.priority || 3,
-      });
-      e.target.value = '';
-      toast('Aufgabe erstellt');
-      await afterMutation();
-    });
-  });
+  $('#newTaskBtn').addEventListener('click', () => openTaskDetail('new'));
 
   $('#overlay').addEventListener('click', closeDetail);
 }
@@ -254,7 +229,7 @@ async function setView(view, projectId = null) {
   $all('#mainNav [data-view]').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $all('.nav-project').forEach((b) => b.classList.toggle('active', view === 'project' && Number(b.dataset.projectId) === projectId));
 
-  if (view === 'business' || view === 'privat') state.quickAddArea = view;
+  if (view === 'business' || view === 'privat') state.newTaskArea = view;
 
   $('#mobileTitle').textContent = view === 'project'
     ? (projectById(projectId)?.name || 'Projekt')
@@ -724,7 +699,7 @@ function closeDetail() {
 async function openTaskDetail(idOrNew, defaults = {}) {
   const isNew = idOrNew === 'new';
   const task = isNew ? {
-    id: null, title: '', notes: '', area: defaults.area || state.quickAddArea,
+    id: null, title: '', notes: '', area: defaults.area || state.newTaskArea,
     project_id: defaults.projectId || null, parent_task_id: null, due_date: null, due_time: null,
     priority: 3, status: 'open', tags: [], link: null, assignee: '', waiting_person: null,
     waiting_follow_up_date: null, recurrence: null, focus_date: null, sort_order: 0, subtasks: [],
@@ -734,8 +709,77 @@ async function openTaskDetail(idOrNew, defaults = {}) {
   $('#overlay').hidden = false;
   const panel = $('#taskDetail');
   panel.hidden = false;
-  panel.innerHTML = taskFormHTML(task, isNew);
-  bindTaskFormEvents(task, isNew);
+  if (isNew) {
+    panel.innerHTML = newTaskFormHTML(task);
+    bindNewTaskFormEvents(task);
+  } else {
+    panel.innerHTML = taskFormHTML(task, isNew);
+    bindTaskFormEvents(task, isNew);
+  }
+}
+
+function newTaskFormHTML(task) {
+  return `
+    <div class="slideover-header">
+      <div class="slideover-title">Neue Aufgabe</div>
+      <button class="icon-btn" id="closeDetailBtn">✕</button>
+    </div>
+
+    <div class="field">
+      <label>Titel</label>
+      <input type="text" id="nTitle" value="${escapeHtml(task.title)}" />
+    </div>
+
+    <div class="field">
+      <label>Notiz</label>
+      <textarea id="nNotes" rows="3">${escapeHtml(task.notes)}</textarea>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Bereich</label>
+        <select id="nArea">
+          <option value="business" ${task.area === 'business' ? 'selected' : ''}>Business</option>
+          <option value="privat" ${task.area === 'privat' ? 'selected' : ''}>Privat</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Fälligkeitsdatum</label>
+        <input type="date" id="nDueDate" value="${task.due_date || ''}" />
+      </div>
+    </div>
+
+    <div class="slideover-footer">
+      <div></div>
+      <button class="btn btn-primary" id="saveNewTaskBtn" type="button">Erstellen</button>
+    </div>
+  `;
+}
+
+function bindNewTaskFormEvents(task) {
+  $('#closeDetailBtn').addEventListener('click', closeDetail);
+
+  const submit = async () => {
+    const title = $('#nTitle').value.trim();
+    if (!title) { toast('Titel darf nicht leer sein'); return; }
+    await withBusy(async () => {
+      await API.createTask({
+        title,
+        notes: $('#nNotes').value,
+        area: $('#nArea').value,
+        due_date: $('#nDueDate').value || null,
+        priority: 3,
+      });
+      toast('Aufgabe erstellt');
+      closeDetail();
+      await afterMutation();
+    });
+  };
+
+  $('#saveNewTaskBtn').addEventListener('click', submit);
+  $('#nTitle').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submit();
+  });
 }
 
 function projectOptionsHTML(area, selectedId) {
@@ -748,10 +792,10 @@ function projectOptionsHTML(area, selectedId) {
   return opts.join('');
 }
 
-function taskFormHTML(task, isNew) {
+function taskFormHTML(task) {
   return `
     <div class="slideover-header">
-      <div class="slideover-title">${isNew ? 'Neue Aufgabe' : 'Aufgabe bearbeiten'}</div>
+      <div class="slideover-title">Aufgabe bearbeiten</div>
       <button class="icon-btn" id="closeDetailBtn">✕</button>
     </div>
 
@@ -809,14 +853,14 @@ function taskFormHTML(task, isNew) {
       </button>
     </div>
 
-    ${!isNew ? subtasksHTML(task) : ''}
+    ${subtasksHTML(task)}
 
     <div class="slideover-footer">
       <div>
-        ${!isNew ? '<button class="btn btn-danger" id="deleteTaskBtn" type="button">Löschen</button>' : ''}
+        <button class="btn btn-danger" id="deleteTaskBtn" type="button">Löschen</button>
       </div>
       <div style="display:flex;gap:8px">
-        ${!isNew && task.status !== 'done' ? '<button class="btn" id="completeTaskBtn" type="button">Erledigt</button>' : ''}
+        ${task.status !== 'done' ? '<button class="btn" id="completeTaskBtn" type="button">Erledigt</button>' : ''}
         <button class="btn btn-primary" id="saveTaskBtn" type="button">Speichern</button>
       </div>
     </div>
@@ -842,7 +886,7 @@ function subtasksHTML(task) {
   `;
 }
 
-function bindTaskFormEvents(task, isNew) {
+function bindTaskFormEvents(task) {
   $('#closeDetailBtn').addEventListener('click', closeDetail);
 
   $('#fArea').addEventListener('change', () => {
@@ -850,7 +894,6 @@ function bindTaskFormEvents(task, isNew) {
   });
 
   $('#fFocusToggle').addEventListener('click', async () => {
-    if (isNew) { toast('Erst speichern, dann Fokus setzen'); return; }
     const isFocused = task.focus_date === todayISO();
     await withBusy(async () => {
       await API.setFocus(task.id, isFocused ? null : todayISO());
@@ -860,60 +903,57 @@ function bindTaskFormEvents(task, isNew) {
     });
   });
 
-  if (!isNew) {
-    const completeBtn = $('#completeTaskBtn');
-    if (completeBtn) completeBtn.addEventListener('click', async () => {
-      await withBusy(async () => {
-        const result = await API.completeTask(task.id);
-        toast(result.next_task ? `Erledigt – nächste Wiederholung: ${fmtDate(result.next_task.due_date)}` : 'Erledigt');
-        closeDetail();
-        await afterMutation();
-      });
+  const completeBtn = $('#completeTaskBtn');
+  if (completeBtn) completeBtn.addEventListener('click', async () => {
+    await withBusy(async () => {
+      const result = await API.completeTask(task.id);
+      toast(result.next_task ? `Erledigt – nächste Wiederholung: ${fmtDate(result.next_task.due_date)}` : 'Erledigt');
+      closeDetail();
+      await afterMutation();
     });
+  });
 
-    $('#deleteTaskBtn').addEventListener('click', async () => {
-      if (!confirm('Aufgabe wirklich löschen?')) return;
-      await withBusy(async () => {
-        await API.deleteTask(task.id);
-        toast('Gelöscht');
-        closeDetail();
-        await afterMutation();
-      });
+  $('#deleteTaskBtn').addEventListener('click', async () => {
+    if (!confirm('Aufgabe wirklich löschen?')) return;
+    await withBusy(async () => {
+      await API.deleteTask(task.id);
+      toast('Gelöscht');
+      closeDetail();
+      await afterMutation();
     });
+  });
 
-    $('#addSubtaskBtn').addEventListener('click', async () => {
-      const input = $('#newSubtaskTitle');
-      if (!input.value.trim()) return;
+  $('#addSubtaskBtn').addEventListener('click', async () => {
+    const input = $('#newSubtaskTitle');
+    if (!input.value.trim()) return;
+    await withBusy(async () => {
+      await API.createTask({ title: input.value.trim(), area: task.area, parent_task_id: task.id, project_id: task.project_id });
+      await openTaskDetail(task.id);
+    });
+  });
+
+  $all('[data-action="toggle-sub"]', $('#taskDetail')).forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const row = btn.closest('[data-subtask-id]');
+      const subId = Number(row.dataset.subtaskId);
+      const sub = task.subtasks.find((s) => s.id === subId);
       await withBusy(async () => {
-        await API.createTask({ title: input.value.trim(), area: task.area, parent_task_id: task.id, project_id: task.project_id });
+        await toggleTaskComplete(sub);
         await openTaskDetail(task.id);
       });
     });
-
-    $all('[data-action="toggle-sub"]', $('#taskDetail')).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const row = btn.closest('[data-subtask-id]');
-        const subId = Number(row.dataset.subtaskId);
-        const sub = task.subtasks.find((s) => s.id === subId);
-        await withBusy(async () => {
-          await toggleTaskComplete(sub);
-          await openTaskDetail(task.id);
-        });
-      });
-    });
-  }
+  });
 
   $('#saveTaskBtn').addEventListener('click', async () => {
     const title = $('#fTitle').value.trim();
     if (!title) { toast('Titel darf nicht leer sein'); return; }
-    const dueDate = $('#fDueDate').value || null;
     const payload = {
       title,
       notes: $('#fNotes').value,
       area: $('#fArea').value,
       project_id: $('#fProject').value ? Number($('#fProject').value) : null,
       parent_task_id: task.parent_task_id || null,
-      due_date: dueDate,
+      due_date: $('#fDueDate').value || null,
       due_time: $('#fDueTime').value || null,
       priority: Number($('#fPriority').value),
       status: task.status,
@@ -927,13 +967,8 @@ function bindTaskFormEvents(task, isNew) {
       sort_order: task.sort_order || 0,
     };
     await withBusy(async () => {
-      if (isNew) {
-        await API.createTask(payload);
-        toast('Aufgabe erstellt');
-      } else {
-        await API.updateTask(task.id, payload);
-        toast('Gespeichert');
-      }
+      await API.updateTask(task.id, payload);
+      toast('Gespeichert');
       closeDetail();
       await afterMutation();
     });

@@ -85,18 +85,7 @@
         </header>
 
         <div class="quickadd-bar">
-          <span class="quickadd-ico">+</span>
-          <input
-            id="quickAddInput"
-            class="quickadd-input"
-            type="text"
-            placeholder="Neue Aufgabe… z. B. „Präsentation morgen 14 Uhr P1“"
-            autocomplete="off"
-          />
-          <div class="quickadd-area" id="quickAddArea" role="radiogroup" aria-label="Bereich">
-            <button type="button" class="area-pill area-business active" data-area="business">Business</button>
-            <button type="button" class="area-pill area-privat" data-area="privat">Privat</button>
-          </div>
+          <button type="button" id="newTaskBtn" class="btn btn-primary new-task-btn">+ Neue Aufgabe</button>
         </div>
 
         <main class="main" id="main">
@@ -111,7 +100,6 @@
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
     <script src="./api.js"></script>
-    <script src="./quickadd.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

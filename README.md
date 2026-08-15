@@ -1,8 +1,8 @@
 # To-do – Business & Privat
 
 Persönliches To-do-Cockpit: klare Trennung Business/Privat, gemeinsame
-Heute-Ansicht, Wochenplanung, Schnellerfassung mit deutschem NLP-Parser
-(„Präsentation morgen 14 Uhr P1").
+Heute-Ansicht, Wochenplanung, schnelle Erfassung über ein einfaches
+Formular (Titel, Notiz, Bereich, Datum).
 
 Bewusst schlank gehalten: "Warten auf", Wiederholungsregeln, Tags und Link
 sind aus der Oberfläche entfernt (zu viele Konzepte auf einmal). Das
@@ -74,13 +74,15 @@ die UI erreichbar** (siehe oben) – die Spalten/die Logik in
 (API vorhanden, UI dafür aktuell entfernt), `done`, `backlog`, `week`
 (braucht zusätzlich `week_start`, Montag als ISO-Datum).
 
-## Quick-Add-Parser (`web/quickadd.js`)
+## Neue Aufgabe
 
-Erkennt in freiem Text (Deutsch): `heute`, `morgen`, `übermorgen`,
-Wochentage (`montag` … `sonntag`, auch `nächsten montag`), `in 3 Tagen`,
-`in 2 Wochen`, Datum `20.08.` oder `20.08.2026`, Uhrzeit `14:00` oder
-`14 Uhr`, Priorität `P1`–`P4`. Der Rest bleibt der Titel. Best effort – im
-Task-Detail lässt sich jedes Feld danach korrigieren.
+Der Button "+ Neue Aufgabe" oben öffnet ein schlankes Fenster mit nur
+Titel, Notiz, Bereich und Fälligkeitsdatum (keine Uhrzeit, keine
+Priorität, keine Unteraufgaben) – Priorität landet auf P3, alles Weitere
+lässt sich danach im vollen Bearbeiten-Formular (Klick auf die Aufgabe)
+ergänzen. Es gab hier vorher eine Freitext-Schnellerfassung mit deutschem
+NLP-Parser ("Präsentation morgen 14 Uhr P1"); die wurde bewusst durch
+dieses einfachere, feldbasierte Fenster ersetzt.
 
 ## Tests
 
