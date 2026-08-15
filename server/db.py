@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS tasks (
   completed_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS loans (
+  id INTEGER PRIMARY KEY,
+  product TEXT NOT NULL,
+  person TEXT NOT NULL,
+  area TEXT NOT NULL CHECK(area IN ('business','privat')),
+  lent_date TEXT NOT NULL,
+  returned_date TEXT,
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -51,6 +62,8 @@ CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_id);
+CREATE INDEX IF NOT EXISTS idx_loans_area ON loans(area);
+CREATE INDEX IF NOT EXISTS idx_loans_returned ON loans(returned_date);
 """
 
 

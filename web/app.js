@@ -219,7 +219,7 @@ function renderProjectNavList(sel, projects) {
 }
 
 const VIEW_TITLES = {
-  today: 'Heute', all: 'Alle', planned: 'Geplant', week: 'Woche',
+  today: 'Heute', all: 'Alle', planned: 'Geplant', week: 'Woche', loans: 'Ausleihe',
   business: 'Business', privat: 'Privat', done: 'Erledigt', search: 'Suche',
 };
 
@@ -252,6 +252,7 @@ async function renderCurrentView() {
       case 'all': return await renderAll();
       case 'planned': return await renderPlanned();
       case 'week': return await renderWeek();
+      case 'loans': return await renderLoans();
       case 'business': return await renderArea('business');
       case 'privat': return await renderArea('privat');
       case 'project': return await renderProject(state.currentProjectId);
@@ -648,6 +649,192 @@ function bindWeekDragDrop(byId) {
         await API.updateTask(taskId, { ...taskToTaskIn(task), due_date: newDueDate });
         await renderWeek();
       });
+    });
+  });
+}
+
+// --------------------------------------------------------------- Ausleihe
+
+function loanRowHTML(loan) {
+  const statusChip = loan.returned_date
+    ? `<span class="chip">zurück am ${escapeHtml(fmtDate(loan.returned_date))}</span>`
+    : `<span class="chip">seit ${escapeHtml(fmtDate(loan.lent_date))}</span>`;
+  return `
+    <div class="task-row" data-loan-id="${loan.id}">
+      <div class="task-body">
+        <div class="task-title">${escapeHtml(loan.product)}</div>
+        <div class="task-meta">
+          <span class="chip"><span class="area-dot area-${loan.area}"></span> ${AREA_LABEL[loan.area]}</span>
+          <span class="chip">${escapeHtml(loan.person)}</span>
+          ${statusChip}
+        </div>
+      </div>
+      <button class="btn btn-small" data-action="toggle-return" type="button">
+        ${loan.returned_date ? 'Wieder ausleihen' : 'Zurück'}
+      </button>
+    </div>
+  `;
+}
+
+function attachLoanListEvents(container, loansById) {
+  $all('.task-row', container).forEach((row) => {
+    const id = Number(row.dataset.loanId);
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('[data-action="toggle-return"]')) return;
+      openLoanDetail(id);
+    });
+    $('[data-action="toggle-return"]', row).addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const loan = loansById[id];
+      await withBusy(async () => {
+        if (loan.returned_date) await API.unreturnLoan(id);
+        else await API.returnLoan(id);
+        await renderLoans();
+      });
+    });
+  });
+}
+
+async function renderLoans() {
+  const loans = await API.loans();
+  const active = loans.filter((l) => !l.returned_date);
+  const returned = loans.filter((l) => l.returned_date);
+  const byId = indexById(loans);
+
+  $('#screen').innerHTML = `
+    <div class="section-title" style="align-items:center">
+      Ausgeliehen <span class="count">${active.length}</span>
+      <button class="btn btn-small btn-primary" id="newLoanBtn" style="margin-left:auto" type="button">+ Neue Ausleihe</button>
+    </div>
+    <div id="listActive"></div>
+    ${returned.length ? `<div class="section-title">Zurückgegeben <span class="count">${returned.length}</span></div><div id="listReturned"></div>` : ''}
+  `;
+
+  $('#newLoanBtn').addEventListener('click', () => openLoanDetail('new'));
+
+  const listActive = $('#listActive');
+  listActive.innerHTML = active.length
+    ? `<div class="task-list">${active.map(loanRowHTML).join('')}</div>`
+    : '<div class="empty-state">Nichts ausgeliehen.</div>';
+  attachLoanListEvents(listActive, byId);
+
+  if (returned.length) {
+    const listReturned = $('#listReturned');
+    listReturned.innerHTML = `<div class="task-list">${returned.map(loanRowHTML).join('')}</div>`;
+    attachLoanListEvents(listReturned, byId);
+  }
+}
+
+function loanFormHTML(loan, isNew) {
+  return `
+    <div class="slideover-header">
+      <div class="slideover-title">${isNew ? 'Neue Ausleihe' : 'Ausleihe bearbeiten'}</div>
+      <button class="icon-btn" id="closeDetailBtn">✕</button>
+    </div>
+
+    <div class="field">
+      <label>Produkt</label>
+      <input type="text" id="lProduct" value="${escapeHtml(loan.product)}" placeholder="z. B. Wing Score 4.5m2" />
+    </div>
+
+    <div class="field">
+      <label>Person</label>
+      <input type="text" id="lPerson" value="${escapeHtml(loan.person)}" />
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Bereich</label>
+        <select id="lArea">
+          <option value="business" ${loan.area === 'business' ? 'selected' : ''}>Business</option>
+          <option value="privat" ${loan.area === 'privat' ? 'selected' : ''}>Privat</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Ausleihdatum</label>
+        <input type="date" id="lLentDate" value="${loan.lent_date}" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Notizen</label>
+      <textarea id="lNotes" rows="3">${escapeHtml(loan.notes || '')}</textarea>
+    </div>
+
+    ${!isNew ? `
+    <div class="field-row">
+      <button class="btn ${loan.returned_date ? 'btn-primary' : ''}" id="lReturnToggle" type="button">
+        ${loan.returned_date ? `Wieder ausleihen (zurück am ${escapeHtml(fmtDate(loan.returned_date))})` : 'Als zurückgegeben markieren'}
+      </button>
+    </div>` : ''}
+
+    <div class="slideover-footer">
+      <div>${!isNew ? '<button class="btn btn-danger" id="deleteLoanBtn" type="button">Löschen</button>' : ''}</div>
+      <button class="btn btn-primary" id="saveLoanBtn" type="button">${isNew ? 'Erstellen' : 'Speichern'}</button>
+    </div>
+  `;
+}
+
+async function openLoanDetail(idOrNew) {
+  const isNew = idOrNew === 'new';
+  const loan = isNew
+    ? { id: null, product: '', person: '', area: state.newTaskArea, lent_date: todayISO(), notes: '', returned_date: null }
+    : (await API.loans()).find((l) => l.id === idOrNew);
+
+  state.detail = { type: 'loan', id: isNew ? 'new' : loan.id };
+  $('#overlay').hidden = false;
+  const panel = $('#taskDetail');
+  panel.hidden = false;
+  panel.innerHTML = loanFormHTML(loan, isNew);
+  bindLoanFormEvents(loan, isNew);
+}
+
+function bindLoanFormEvents(loan, isNew) {
+  $('#closeDetailBtn').addEventListener('click', closeDetail);
+
+  if (!isNew) {
+    $('#lReturnToggle').addEventListener('click', async () => {
+      await withBusy(async () => {
+        if (loan.returned_date) await API.unreturnLoan(loan.id);
+        else await API.returnLoan(loan.id);
+        toast(loan.returned_date ? 'Wieder ausgeliehen' : 'Als zurückgegeben markiert');
+        closeDetail();
+        await renderLoans();
+      });
+    });
+
+    $('#deleteLoanBtn').addEventListener('click', async () => {
+      if (!confirm('Ausleihe wirklich löschen?')) return;
+      await withBusy(async () => {
+        await API.deleteLoan(loan.id);
+        toast('Gelöscht');
+        closeDetail();
+        await renderLoans();
+      });
+    });
+  }
+
+  $('#saveLoanBtn').addEventListener('click', async () => {
+    const product = $('#lProduct').value.trim();
+    const person = $('#lPerson').value.trim();
+    if (!product || !person) { toast('Produkt und Person dürfen nicht leer sein'); return; }
+    const payload = {
+      product,
+      person,
+      area: $('#lArea').value,
+      lent_date: $('#lLentDate').value || todayISO(),
+      notes: $('#lNotes').value,
+    };
+    await withBusy(async () => {
+      if (isNew) {
+        await API.createLoan(payload);
+        toast('Ausleihe erstellt');
+      } else {
+        await API.updateLoan(loan.id, payload);
+        toast('Gespeichert');
+      }
+      closeDetail();
+      await renderLoans();
     });
   });
 }

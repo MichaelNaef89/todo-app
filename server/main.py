@@ -66,6 +66,14 @@ class ProjectIn(BaseModel):
     archived: bool = False
 
 
+class LoanIn(BaseModel):
+    product: str
+    person: str
+    area: str
+    lent_date: str
+    notes: str = ""
+
+
 # ------------------------------------------------------------ Validierung --
 
 def require_area(area: str) -> None:
@@ -500,6 +508,111 @@ def delete_project(project_id: int):
         conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         conn.commit()
         return {"ok": True}
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------- Ausleihe --
+
+@api.get("/loans")
+def list_loans(area: Optional[str] = None):
+    conn = get_conn()
+    try:
+        clauses: List[str] = []
+        params: List = []
+        if area:
+            require_area(area)
+            clauses.append("area = ?")
+            params.append(area)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = conn.execute(
+            f"SELECT * FROM loans {where} "
+            "ORDER BY (returned_date IS NOT NULL), lent_date ASC",
+            params,
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@api.post("/loans")
+def create_loan(loan: LoanIn):
+    require_area(loan.area)
+    if not loan.product.strip() or not loan.person.strip():
+        raise HTTPException(400, "product und person dürfen nicht leer sein")
+    conn = get_conn()
+    try:
+        cur = conn.execute(
+            "INSERT INTO loans (product, person, area, lent_date, notes) VALUES (?,?,?,?,?)",
+            (loan.product.strip(), loan.person.strip(), loan.area, loan.lent_date, loan.notes),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM loans WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@api.put("/loans/{loan_id}")
+def update_loan(loan_id: int, loan: LoanIn):
+    require_area(loan.area)
+    if not loan.product.strip() or not loan.person.strip():
+        raise HTTPException(400, "product und person dürfen nicht leer sein")
+    conn = get_conn()
+    try:
+        existing = conn.execute("SELECT id FROM loans WHERE id = ?", (loan_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Ausleihe nicht gefunden")
+        conn.execute(
+            "UPDATE loans SET product=?, person=?, area=?, lent_date=?, notes=? WHERE id=?",
+            (loan.product.strip(), loan.person.strip(), loan.area, loan.lent_date, loan.notes, loan_id),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM loans WHERE id = ?", (loan_id,)).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@api.delete("/loans/{loan_id}")
+def delete_loan(loan_id: int):
+    conn = get_conn()
+    try:
+        conn.execute("DELETE FROM loans WHERE id = ?", (loan_id,))
+        conn.commit()
+        return {"ok": True}
+    finally:
+        conn.close()
+
+
+@api.post("/loans/{loan_id}/return")
+def return_loan(loan_id: int):
+    conn = get_conn()
+    try:
+        existing = conn.execute("SELECT id FROM loans WHERE id = ?", (loan_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Ausleihe nicht gefunden")
+        conn.execute(
+            "UPDATE loans SET returned_date = date('now') WHERE id = ?", (loan_id,)
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM loans WHERE id = ?", (loan_id,)).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+@api.post("/loans/{loan_id}/unreturn")
+def unreturn_loan(loan_id: int):
+    conn = get_conn()
+    try:
+        existing = conn.execute("SELECT id FROM loans WHERE id = ?", (loan_id,)).fetchone()
+        if not existing:
+            raise HTTPException(404, "Ausleihe nicht gefunden")
+        conn.execute("UPDATE loans SET returned_date = NULL WHERE id = ?", (loan_id,))
+        conn.commit()
+        row = conn.execute("SELECT * FROM loans WHERE id = ?", (loan_id,)).fetchone()
+        return dict(row)
     finally:
         conn.close()
 

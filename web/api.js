@@ -64,5 +64,18 @@ const API = (() => {
 
     search: (q) => get(`/search?q=${encodeURIComponent(q)}`),
     counts: () => get('/counts'),
+
+    loans: (params = {}) => {
+      const qs = new URLSearchParams(
+        Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+      );
+      const suffix = qs.toString() ? `?${qs}` : '';
+      return get(`/loans${suffix}`);
+    },
+    createLoan: (loan) => post('/loans', loan),
+    updateLoan: (id, loan) => put(`/loans/${id}`, loan),
+    deleteLoan: (id) => del(`/loans/${id}`),
+    returnLoan: (id) => post(`/loans/${id}/return`),
+    unreturnLoan: (id) => post(`/loans/${id}/unreturn`),
   };
 })();

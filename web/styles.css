@@ -391,6 +391,7 @@ input:focus, textarea:focus, select:focus {
 .task-row[draggable="true"] { cursor: grab; }
 .task-row.dragging { opacity: 0.4; }
 .task-row.done .task-title { text-decoration: line-through; color: var(--text-faint); }
+.task-row > .btn-small { align-self: center; flex: 0 0 auto; }
 
 .task-check {
   flex: 0 0 20px;

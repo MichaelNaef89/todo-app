@@ -13,7 +13,7 @@ nachrüsten.
 ## Architektur
 
 ```
-server/    FastAPI-Backend: liefert web/ aus, Passwort-Login, /api/tasks, /api/projects
+server/    FastAPI-Backend: liefert web/ aus, Passwort-Login, /api/tasks, /api/projects, /api/loans
 web/       PWA – HTML/CSS/JS, kein Build-Schritt
 tools/     Icon-Generator, Passwort setzen
 ```
@@ -52,6 +52,10 @@ waiting_follow_up_date, recurrence (JSON-Regel), focus_date, sort_order.
 **projects**: name, area, parent_project_id (Unterprojekte), notes,
 sort_order, archived.
 
+**loans** (Ausleihe, eigener Bereich – kein Task): product, person, area,
+lent_date, returned_date (NULL solange draussen), notes. Kein geplantes
+Rückgabedatum, bewusst minimal (Produkt/Person/Datum + Notiz).
+
 **Wiederholungsregeln, "Warten auf", Tags und Link sind aktuell nicht über
 die UI erreichbar** (siehe oben) – die Spalten/die Logik in
 `server/recurrence.py` existieren weiter, falls das später gebraucht wird.
@@ -69,6 +73,9 @@ die UI erreichbar** (siehe oben) – die Spalten/die Logik in
 | GET/POST | `/api/projects`, `/api/projects/{id}` | Projekte inkl. Fortschritt/Deadline |
 | GET | `/api/search?q=` | Suche über Titel/Notizen/Tags/Personen |
 | GET | `/api/counts` | Kennzahlen für die Heute-Ansicht |
+| GET/POST | `/api/loans` | Ausleihen listen (Filter: area) / anlegen |
+| PUT/DELETE | `/api/loans/{id}` | Ausleihe ändern/löschen |
+| POST | `/api/loans/{id}/return`, `/api/loans/{id}/unreturn` | Als zurückgegeben markieren / rückgängig machen |
 
 `view`-Werte für `GET /api/tasks`: `today`, `planned`, `inbox`/`waiting`
 (API vorhanden, UI dafür aktuell entfernt), `done`, `backlog`, `week`
