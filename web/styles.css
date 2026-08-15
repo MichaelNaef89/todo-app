@@ -361,7 +361,7 @@ input:focus, textarea:focus, select:focus {
 
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   margin-bottom: 22px;
 }
@@ -457,7 +457,6 @@ input:focus, textarea:focus, select:focus {
 .chip-overdue { background: var(--danger-bg); color: var(--danger); }
 .chip-priority-1 { background: var(--danger-bg); color: var(--p1); }
 .chip-priority-2 { background: color-mix(in srgb, var(--p2) 18%, transparent); color: var(--p2); }
-.chip-waiting { background: color-mix(in srgb, var(--p2) 18%, transparent); color: var(--p2); }
 
 .area-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
 .area-dot.area-business { background: var(--accent-business); }

@@ -2,7 +2,6 @@
    analog zum data-screen-Muster der Stempeluhr-PWA) und Rendering aller
    Ansichten. */
 
-const WEEKDAY_CODES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const AREA_LABEL = { business: 'Business', privat: 'Privat' };
 const PRIORITY_LABEL = { 1: 'P1', 2: 'P2', 3: 'P3', 4: 'P4' };
 
@@ -50,11 +49,6 @@ function addDaysISO(iso, n) {
   return isoOf(date);
 }
 
-function weekdayCode(date) {
-  const idx = (date.getDay() + 6) % 7;
-  return WEEKDAY_CODES[idx];
-}
-
 function fmtDate(iso) {
   if (!iso) return '';
   const [y, m, d] = iso.split('-').map(Number);
@@ -75,20 +69,6 @@ function toast(msg) {
   el.hidden = false;
   clearTimeout(toast._t);
   toast._t = setTimeout(() => { el.hidden = true; }, 2400);
-}
-
-function recurrenceLabel(rule) {
-  if (!rule) return '';
-  switch (rule.freq) {
-    case 'daily': return 'täglich';
-    case 'weekly': return 'wöchentlich';
-    case 'every_n_weeks': return `alle ${rule.n || 2} Wochen`;
-    case 'monthly': return 'monatlich';
-    case 'monthly_weekday': return 'monatlich (Wochentag)';
-    case 'yearly': return 'jährlich';
-    case 'after_completion': return `${rule.days || 1} Tage nach Abschluss`;
-    default: return 'wiederkehrend';
-  }
 }
 
 function projectById(id) {
@@ -265,7 +245,7 @@ function renderProjectNavList(sel, projects) {
 
 const VIEW_TITLES = {
   today: 'Heute', inbox: 'Inbox', planned: 'Geplant', week: 'Woche',
-  business: 'Business', privat: 'Privat', waiting: 'Warten auf', done: 'Erledigt', search: 'Suche',
+  business: 'Business', privat: 'Privat', done: 'Erledigt', search: 'Suche',
 };
 
 async function setView(view, projectId = null) {
@@ -300,7 +280,6 @@ async function renderCurrentView() {
       case 'business': return await renderArea('business');
       case 'privat': return await renderArea('privat');
       case 'project': return await renderProject(state.currentProjectId);
-      case 'waiting': return await renderWaiting();
       case 'done': return await renderDone();
       case 'search': return await renderSearch();
       default: screen.innerHTML = '<div class="empty-state">Unbekannte Ansicht</div>';
@@ -326,13 +305,6 @@ function taskRowHTML(task, { showProject = true } = {}) {
   if (task.priority <= 2) {
     chips.push(`<span class="chip chip-priority-${task.priority}">${PRIORITY_LABEL[task.priority]}</span>`);
   }
-  if (task.status === 'waiting') {
-    chips.push(`<span class="chip chip-waiting">Warten auf ${escapeHtml(task.waiting_person || '?')}${task.waiting_follow_up_date ? ' · ' + fmtDate(task.waiting_follow_up_date) : ''}</span>`);
-  }
-  if (task.recurrence) {
-    chips.push(`<span class="chip">↻ ${recurrenceLabel(task.recurrence)}</span>`);
-  }
-  (task.tags || []).forEach((t) => chips.push(`<span class="chip">#${escapeHtml(t)}</span>`));
 
   return `
     <div class="task-row" data-task-id="${task.id}" data-priority="${task.priority}" draggable="true">
@@ -452,7 +424,6 @@ async function renderToday() {
   const dueToday = tasks.filter((t) => t.status === 'open' && t.due_date === today);
   const heute = dueToday.filter((t) => t.priority <= 2);
   const wennZeit = dueToday.filter((t) => t.priority > 2);
-  const waitingDue = tasks.filter((t) => t.status === 'waiting' && t.waiting_follow_up_date && t.waiting_follow_up_date <= today);
 
   const byId = indexById(tasks);
 
@@ -461,12 +432,10 @@ async function renderToday() {
       <div class="stat-tile"><div class="num">${counts.today}</div><div class="label">Heute</div></div>
       <div class="stat-tile"><div class="num">${counts.focus}</div><div class="label">Fokus</div></div>
       <div class="stat-tile ${counts.overdue ? 'warn' : ''}"><div class="num">${counts.overdue}</div><div class="label">Überfällig</div></div>
-      <div class="stat-tile"><div class="num">${counts.waiting}</div><div class="label">Warten auf</div></div>
       <div class="stat-tile"><div class="num">${counts.this_week}</div><div class="label">Diese Woche</div></div>
     </div>
 
     ${overdue.length ? `<div class="section-title">Überfällig <span class="count">${overdue.length}</span></div><div id="listOverdue"></div>` : ''}
-    ${waitingDue.length ? `<div class="section-title">Warten auf – Nachfassen fällig <span class="count">${waitingDue.length}</span></div><div id="listWaitingDue"></div>` : ''}
     <div class="section-title">Fokus <span class="count">${focus.length}/5</span></div>
     <div id="listFocus"></div>
     <div class="section-title">Heute <span class="count">${heute.length}</span></div>
@@ -481,7 +450,6 @@ async function renderToday() {
     attachTaskListEvents(el, byId, { sortable: false });
   };
   mount('#listOverdue', overdue);
-  mount('#listWaitingDue', waitingDue);
   mount('#listFocus', focus.length ? focus : []);
   if (!focus.length) $('#listFocus').innerHTML = '<div class="empty-state">Noch keine Fokus-Aufgaben gewählt – im Task öffnen und „Fokus heute“ setzen.</div>';
   mount('#listHeute', heute);
@@ -601,20 +569,6 @@ async function renderProject(projectId) {
     elDone.innerHTML = taskListHTML(doneTasks, { showProject: false });
     attachTaskListEvents(elDone, indexById(doneTasks), { sortable: false });
   }
-}
-
-// ------------------------------------------------------------ Warten auf
-
-async function renderWaiting() {
-  const tasks = await API.tasks({ view: 'waiting' });
-  const byId = indexById(tasks);
-  $('#screen').innerHTML = `
-    <div class="section-title">Warten auf <span class="count">${tasks.length}</span></div>
-    <div id="list"></div>
-  `;
-  const el = $('#list');
-  el.innerHTML = taskListHTML(tasks, { showProject: true });
-  attachTaskListEvents(el, byId, { sortable: false });
 }
 
 // -------------------------------------------------------------- Erledigt
@@ -772,7 +726,7 @@ async function openTaskDetail(idOrNew, defaults = {}) {
   const task = isNew ? {
     id: null, title: '', notes: '', area: defaults.area || state.quickAddArea,
     project_id: defaults.projectId || null, parent_task_id: null, due_date: null, due_time: null,
-    priority: 3, status: 'open', tags: [], link: '', assignee: '', waiting_person: '',
+    priority: 3, status: 'open', tags: [], link: null, assignee: '', waiting_person: null,
     waiting_follow_up_date: null, recurrence: null, focus_date: null, sort_order: 0, subtasks: [],
   } : await API.task(idOrNew);
 
@@ -795,8 +749,6 @@ function projectOptionsHTML(area, selectedId) {
 }
 
 function taskFormHTML(task, isNew) {
-  const recFreq = task.recurrence?.freq || '';
-  const recDays = task.recurrence?.days_value || task.recurrence?.days || 3;
   return `
     <div class="slideover-header">
       <div class="slideover-title">${isNew ? 'Neue Aufgabe' : 'Aufgabe bearbeiten'}</div>
@@ -846,57 +798,9 @@ function taskFormHTML(task, isNew) {
         </select>
       </div>
       <div class="field">
-        <label>Status</label>
-        <select id="fStatus">
-          <option value="open" ${task.status === 'open' ? 'selected' : ''}>Offen</option>
-          <option value="waiting" ${task.status === 'waiting' ? 'selected' : ''}>Warten auf</option>
-          <option value="done" ${task.status === 'done' ? 'selected' : ''}>Erledigt</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="field-row" id="waitingFields" ${task.status === 'waiting' ? '' : 'hidden'}>
-      <div class="field">
-        <label>Warten auf (Person)</label>
-        <input type="text" id="fWaitingPerson" value="${escapeHtml(task.waiting_person || '')}" />
-      </div>
-      <div class="field">
-        <label>Nachfassdatum</label>
-        <input type="date" id="fWaitingDate" value="${task.waiting_follow_up_date || ''}" />
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Tags (kommagetrennt)</label>
-      <input type="text" id="fTags" value="${escapeHtml((task.tags || []).join(', '))}" />
-    </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Link</label>
-        <input type="text" id="fLink" value="${escapeHtml(task.link || '')}" placeholder="https://…" />
-      </div>
-      <div class="field">
         <label>Verantwortlich</label>
         <input type="text" id="fAssignee" value="${escapeHtml(task.assignee || '')}" />
       </div>
-    </div>
-
-    <div class="field">
-      <label>Wiederholung</label>
-      <select id="fRecFreq">
-        <option value="" ${!recFreq ? 'selected' : ''}>Keine</option>
-        <option value="daily" ${recFreq === 'daily' ? 'selected' : ''}>Täglich</option>
-        <option value="weekly" ${recFreq === 'weekly' ? 'selected' : ''}>Wöchentlich (gleicher Wochentag)</option>
-        <option value="every_n_weeks" ${recFreq === 'every_n_weeks' ? 'selected' : ''}>Alle 2 Wochen (gleicher Wochentag)</option>
-        <option value="monthly" ${recFreq === 'monthly' ? 'selected' : ''}>Monatlich (gleicher Tag)</option>
-        <option value="yearly" ${recFreq === 'yearly' ? 'selected' : ''}>Jährlich</option>
-        <option value="after_completion" ${recFreq === 'after_completion' ? 'selected' : ''}>X Tage nach Abschluss</option>
-      </select>
-    </div>
-    <div class="field" id="fRecDaysField" ${recFreq === 'after_completion' ? '' : 'hidden'}>
-      <label>Anzahl Tage</label>
-      <input type="number" id="fRecDays" min="1" value="${task.recurrence?.days || 3}" />
     </div>
 
     <div class="field-row">
@@ -938,30 +842,11 @@ function subtasksHTML(task) {
   `;
 }
 
-function readRecurrenceFromForm(dueDateValue) {
-  const freq = $('#fRecFreq').value;
-  if (!freq) return null;
-  const anchor = dueDateValue ? new Date(...dueDateValue.split('-').map((v, i) => (i === 1 ? Number(v) - 1 : Number(v)))) : new Date();
-  if (freq === 'weekly') return { freq, days: [weekdayCode(anchor)] };
-  if (freq === 'every_n_weeks') return { freq, n: 2, days: [weekdayCode(anchor)] };
-  if (freq === 'monthly') return { freq, day_of_month: anchor.getDate() };
-  if (freq === 'after_completion') return { freq, days: parseInt($('#fRecDays').value, 10) || 1 };
-  return { freq };
-}
-
 function bindTaskFormEvents(task, isNew) {
   $('#closeDetailBtn').addEventListener('click', closeDetail);
 
   $('#fArea').addEventListener('change', () => {
     $('#fProject').innerHTML = projectOptionsHTML($('#fArea').value, null);
-  });
-
-  $('#fStatus').addEventListener('change', () => {
-    $('#waitingFields').hidden = $('#fStatus').value !== 'waiting';
-  });
-
-  $('#fRecFreq').addEventListener('change', () => {
-    $('#fRecDaysField').hidden = $('#fRecFreq').value !== 'after_completion';
   });
 
   $('#fFocusToggle').addEventListener('click', async () => {
@@ -1031,13 +916,13 @@ function bindTaskFormEvents(task, isNew) {
       due_date: dueDate,
       due_time: $('#fDueTime').value || null,
       priority: Number($('#fPriority').value),
-      status: $('#fStatus').value,
-      tags: $('#fTags').value.split(',').map((t) => t.trim()).filter(Boolean),
-      link: $('#fLink').value.trim() || null,
+      status: task.status,
+      tags: task.tags || [],
+      link: task.link || null,
       assignee: $('#fAssignee').value.trim() || null,
-      waiting_person: $('#fWaitingPerson')?.value.trim() || null,
-      waiting_follow_up_date: $('#fWaitingDate')?.value || null,
-      recurrence: readRecurrenceFromForm(dueDate),
+      waiting_person: task.waiting_person || null,
+      waiting_follow_up_date: task.waiting_follow_up_date || null,
+      recurrence: task.recurrence || null,
       focus_date: task.focus_date || null,
       sort_order: task.sort_order || 0,
     };

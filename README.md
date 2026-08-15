@@ -1,9 +1,14 @@
 # To-do – Business & Privat
 
 Persönliches To-do-Cockpit: klare Trennung Business/Privat, gemeinsame
-Heute-Ansicht, „Warten auf"-System für delegierte Aufgaben, Wochenplanung,
-wiederkehrende Aufgaben, Schnellerfassung mit deutschem NLP-Parser
+Heute-Ansicht, Wochenplanung, Schnellerfassung mit deutschem NLP-Parser
 („Präsentation morgen 14 Uhr P1").
+
+Bewusst schlank gehalten: "Warten auf", Wiederholungsregeln, Tags und Link
+sind aus der Oberfläche entfernt (zu viele Konzepte auf einmal). Das
+Backend/Datenmodell unterstützt sie weiterhin (siehe unten) – falls sich das
+später als nötig erweist, lässt sich die UI dafür ohne Migration
+nachrüsten.
 
 ## Architektur
 
@@ -47,17 +52,9 @@ waiting_follow_up_date, recurrence (JSON-Regel), focus_date, sort_order.
 **projects**: name, area, parent_project_id (Unterprojekte), notes,
 sort_order, archived.
 
-**Wiederholungsregeln** (`recurrence`, JSON): `{"freq":"daily"}` ·
-`{"freq":"weekly","days":["mon"]}` · `{"freq":"every_n_weeks","n":2,"days":["mon"]}` ·
-`{"freq":"monthly","day_of_month":1}` · `{"freq":"monthly_weekday","week":1,"weekday":"mon"}` ·
-`{"freq":"yearly"}` · `{"freq":"after_completion","days":3}`. Beim Erledigen
-einer wiederkehrenden Aufgabe berechnet `server/recurrence.py` das nächste
-Datum und legt automatisch eine neue offene Aufgabe an.
-
-**„Warten auf"-Wiedervorlage**: Die Heute-Ansicht zeigt zusätzlich zu
-fälligen Aufgaben alle mit `status=waiting` und `waiting_follow_up_date` in
-der Vergangenheit oder heute – damit taucht eine delegierte Aufgabe
-automatisch wieder auf, wenn bis zum Nachfassdatum nichts passiert ist.
+**Wiederholungsregeln, "Warten auf", Tags und Link sind aktuell nicht über
+die UI erreichbar** (siehe oben) – die Spalten/die Logik in
+`server/recurrence.py` existieren weiter, falls das später gebraucht wird.
 
 ## API (server/main.py)
 
@@ -73,8 +70,9 @@ automatisch wieder auf, wenn bis zum Nachfassdatum nichts passiert ist.
 | GET | `/api/search?q=` | Suche über Titel/Notizen/Tags/Personen |
 | GET | `/api/counts` | Kennzahlen für die Heute-Ansicht |
 
-`view`-Werte für `GET /api/tasks`: `today`, `planned`, `inbox`, `waiting`,
-`done`, `backlog`, `week` (braucht zusätzlich `week_start`, Montag als ISO-Datum).
+`view`-Werte für `GET /api/tasks`: `today`, `planned`, `inbox`, `waiting`
+(API vorhanden, UI dafür aktuell entfernt), `done`, `backlog`, `week`
+(braucht zusätzlich `week_start`, Montag als ISO-Datum).
 
 ## Quick-Add-Parser (`web/quickadd.js`)
 
