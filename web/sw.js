@@ -1,7 +1,7 @@
 /* Service Worker - cached nur das App-Shell (HTML/CSS/JS), keine Aufgabendaten.
    Server/SQLite ist die alleinige Datenquelle, /api/* wird nie gecacht. */
 
-const VERSION = 'v7';
+const VERSION = 'v8';
 const SHELL_CACHE = `todo-shell-${VERSION}`;
 
 const SHELL = [

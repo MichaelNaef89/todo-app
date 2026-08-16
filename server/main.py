@@ -44,6 +44,20 @@ IMAGE_JPEG_QUALITY = 82
 app = FastAPI(title="To-do-App")
 
 
+@app.middleware("http")
+async def no_cache_static_assets(request: Request, call_next):
+    """Ohne das hier hat StaticFiles keinen Cache-Control-Header - Browser
+    (v.a. mobil) können app.js/sw.js dann nach eigenen Heuristiken lange
+    aus dem HTTP-Cache bedienen, sodass selbst der 'Netzwerk zuerst'-Service-
+    Worker nie eine echte Anfrage beim Server auslöst. 'no-cache' erzwingt
+    eine Revalidierung (ETag/Last-Modified) bei jedem Laden - billig dank
+    304, aber garantiert nie länger als einen Roundtrip veraltet."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
+
 # ---------------------------------------------------------------- Modelle --
 
 class TaskIn(BaseModel):
