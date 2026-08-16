@@ -389,6 +389,15 @@ input:focus, textarea:focus, select:focus {
 .field-row { display: flex; gap: 10px; }
 .field-row .field { flex: 1; }
 
+.image-preview {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: var(--radius-m);
+  border: 1px solid var(--border);
+  object-fit: cover;
+  margin-top: 4px;
+}
+
 /* --------------------------------------------------------------- Modal */
 
 .overlay {

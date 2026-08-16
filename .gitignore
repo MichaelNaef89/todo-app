@@ -1,5 +1,6 @@
 server/local_secrets.py
 server/todo.db
+server/uploads/
 server/__pycache__/
 __pycache__/
 *.pyc

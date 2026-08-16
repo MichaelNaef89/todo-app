@@ -10,13 +10,16 @@ per httponly-Cookie. Siehe server/auth.py.
     uvicorn server.main:app --host 127.0.0.1 --port 8000
 """
 
+import io
 import json
+import uuid
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.staticfiles import StaticFiles
+from PIL import Image, ImageOps
 from pydantic import BaseModel
 
 from server.auth import (
@@ -31,6 +34,12 @@ from server.recurrence import compute_next_due
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = ROOT / "web"
+UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+MAX_IMAGE_BYTES = 15 * 1024 * 1024  # 15 MB - grosszügig, wird eh runterskaliert
+IMAGE_MAX_EDGE = 1600
+IMAGE_JPEG_QUALITY = 82
 
 app = FastAPI(title="To-do-App")
 
@@ -402,6 +411,80 @@ async def set_focus(task_id: int, request: Request):
         conn.commit()
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         return row_to_task(row)
+    finally:
+        conn.close()
+
+
+def _delete_image_file(filename: Optional[str]) -> None:
+    if not filename:
+        return
+    path = UPLOAD_DIR / filename
+    if path.exists():
+        path.unlink()
+
+
+@api.post("/tasks/{task_id}/image")
+async def upload_task_image(task_id: int, file: UploadFile = File(...)):
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(400, "Nur Bilddateien erlaubt")
+
+    raw = await file.read()
+    if len(raw) > MAX_IMAGE_BYTES:
+        raise HTTPException(400, "Bild ist zu gross (max. 15 MB)")
+
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img = ImageOps.exif_transpose(img)  # Handy-Fotos haben oft eine EXIF-Rotation statt echter Pixel-Rotation
+        img = img.convert("RGB")
+    except Exception:
+        raise HTTPException(400, "Datei ist kein lesbares Bild")
+
+    img.thumbnail((IMAGE_MAX_EDGE, IMAGE_MAX_EDGE), Image.LANCZOS)
+
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT image_filename FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Aufgabe nicht gefunden")
+
+        filename = f"task-{task_id}-{uuid.uuid4().hex[:8]}.jpg"
+        img.save(UPLOAD_DIR / filename, "JPEG", quality=IMAGE_JPEG_QUALITY)
+        _delete_image_file(row["image_filename"])
+
+        conn.execute("UPDATE tasks SET image_filename = ? WHERE id = ?", (filename, task_id))
+        conn.commit()
+        updated = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        return row_to_task(updated)
+    finally:
+        conn.close()
+
+
+@api.get("/tasks/{task_id}/image")
+def get_task_image(task_id: int):
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT image_filename FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if row is None or not row["image_filename"]:
+            raise HTTPException(404, "Kein Bild vorhanden")
+        path = UPLOAD_DIR / row["image_filename"]
+        if not path.exists():
+            raise HTTPException(404, "Kein Bild vorhanden")
+        return Response(content=path.read_bytes(), media_type="image/jpeg")
+    finally:
+        conn.close()
+
+
+@api.delete("/tasks/{task_id}/image")
+def delete_task_image(task_id: int):
+    conn = get_conn()
+    try:
+        row = conn.execute("SELECT image_filename FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if row is None:
+            raise HTTPException(404, "Aufgabe nicht gefunden")
+        _delete_image_file(row["image_filename"])
+        conn.execute("UPDATE tasks SET image_filename = NULL WHERE id = ?", (task_id,))
+        conn.commit()
+        return {"ok": True}
     finally:
         conn.close()
 

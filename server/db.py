@@ -67,9 +67,20 @@ CREATE INDEX IF NOT EXISTS idx_loans_returned ON loans(returned_date);
 """
 
 
+def _migrate_add_columns(conn: sqlite3.Connection) -> None:
+    """Fügt Spalten nachträglich hinzu, die es in älteren todo.db-Ständen
+    noch nicht gibt (CREATE TABLE IF NOT EXISTS rührt bestehende Tabellen
+    nicht an)."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(tasks)").fetchall()}
+    if "image_filename" not in cols:
+        conn.execute("ALTER TABLE tasks ADD COLUMN image_filename TEXT")
+        conn.commit()
+
+
 def get_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _migrate_add_columns(conn)
     return conn

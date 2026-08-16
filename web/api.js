@@ -5,9 +5,11 @@
 
 const API = (() => {
   async function request(path, options = {}) {
+    const isFormData = options.body instanceof FormData;
     const res = await fetch(`/api${path}`, {
       credentials: 'same-origin',
-      headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+      // FormData setzt den Content-Type (inkl. Boundary) selbst - nicht überschreiben.
+      headers: options.body && !isFormData ? { 'Content-Type': 'application/json' } : undefined,
       ...options,
     });
     if (res.status === 401) {
@@ -49,6 +51,13 @@ const API = (() => {
     deleteTask: (id) => del(`/tasks/${id}`),
     completeTask: (id) => post(`/tasks/${id}/complete`),
     setFocus: (id, focusDate) => post(`/tasks/${id}/focus`, { focus_date: focusDate }),
+    uploadTaskImage: (id, file) => {
+      const form = new FormData();
+      form.append('file', file);
+      return request(`/tasks/${id}/image`, { method: 'POST', body: form });
+    },
+    deleteTaskImage: (id) => del(`/tasks/${id}/image`),
+    taskImageUrl: (id) => `/api/tasks/${id}/image`,
 
     projects: (params = {}) => {
       const qs = new URLSearchParams(

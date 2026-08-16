@@ -195,6 +195,9 @@ function taskRowHTML(task) {
   if (task.priority <= 2) {
     chips.push(`<span class="chip chip-priority-${task.priority}">${PRIORITY_LABEL[task.priority]}</span>`);
   }
+  if (task.image_filename) {
+    chips.push('<span class="chip">📷</span>');
+  }
 
   return `
     <div class="task-row" data-task-id="${task.id}" data-priority="${task.priority}" draggable="true">
@@ -578,6 +581,12 @@ function newTaskFormHTML(task) {
       </div>
     </div>
 
+    <div class="field">
+      <label>Bildnotiz</label>
+      <input type="file" accept="image/*" id="nImage" />
+      <img id="nImagePreview" class="image-preview" hidden />
+    </div>
+
     <div class="slideover-footer">
       <div></div>
       <button class="btn btn-primary" id="saveNewTaskBtn" type="button">Erstellen</button>
@@ -588,17 +597,27 @@ function newTaskFormHTML(task) {
 function bindNewTaskFormEvents(task) {
   $('#closeDetailBtn').addEventListener('click', closeDetail);
 
+  $('#nImage').addEventListener('change', () => {
+    const file = $('#nImage').files[0];
+    const preview = $('#nImagePreview');
+    if (!file) { preview.hidden = true; return; }
+    preview.src = URL.createObjectURL(file);
+    preview.hidden = false;
+  });
+
   const submit = async () => {
     const title = $('#nTitle').value.trim();
     if (!title) { toast('Titel darf nicht leer sein'); return; }
+    const imageFile = $('#nImage').files[0] || null;
     await withBusy(async () => {
-      await API.createTask({
+      const created = await API.createTask({
         title,
         notes: $('#nNotes').value,
         area: $('#nArea').value,
         due_date: $('#nDueDate').value || null,
         priority: 3,
       });
+      if (imageFile) await API.uploadTaskImage(created.id, imageFile);
       toast('Aufgabe erstellt');
       closeDetail();
       await afterMutation();
@@ -660,6 +679,19 @@ function taskFormHTML(task) {
       <input type="text" id="fAssignee" value="${escapeHtml(task.assignee || '')}" />
     </div>
 
+    <div class="field">
+      <label>Bildnotiz</label>
+      <img
+        id="fImagePreview"
+        class="image-preview"
+        ${task.image_filename ? `src="${API.taskImageUrl(task.id)}?v=${escapeHtml(task.image_filename)}"` : 'hidden'}
+      />
+      <div class="field-row" style="margin-top:6px">
+        <input type="file" accept="image/*" id="fImage" />
+        ${task.image_filename ? '<button class="btn btn-small btn-danger" id="deleteImageBtn" type="button">Entfernen</button>' : ''}
+      </div>
+    </div>
+
     <div class="field-row">
       <button class="btn ${task.focus_date === todayISO() ? 'btn-primary' : ''}" id="fFocusToggle" type="button">
         ${task.focus_date === todayISO() ? '★ Im Fokus heute' : '☆ Zum Fokus heute hinzufügen'}
@@ -701,6 +733,25 @@ function subtasksHTML(task) {
 
 function bindTaskFormEvents(task) {
   $('#closeDetailBtn').addEventListener('click', closeDetail);
+
+  $('#fImage').addEventListener('change', async () => {
+    const file = $('#fImage').files[0];
+    if (!file) return;
+    await withBusy(async () => {
+      await API.uploadTaskImage(task.id, file);
+      toast('Bild gespeichert');
+      await openTaskDetail(task.id);
+    });
+  });
+
+  const deleteImageBtn = $('#deleteImageBtn');
+  if (deleteImageBtn) deleteImageBtn.addEventListener('click', async () => {
+    await withBusy(async () => {
+      await API.deleteTaskImage(task.id);
+      toast('Bild entfernt');
+      await openTaskDetail(task.id);
+    });
+  });
 
   $('#fFocusToggle').addEventListener('click', async () => {
     const isFocused = task.focus_date === todayISO();

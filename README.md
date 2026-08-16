@@ -53,7 +53,8 @@ Service Worker und Installation funktionieren dort bereits.
 **tasks**: title, notes, area (business/privat), project_id, parent_task_id
 (Unteraufgaben), due_date, due_time, priority (1–4), status
 (open/waiting/done), tags (JSON-Array), link, assignee, waiting_person,
-waiting_follow_up_date, recurrence (JSON-Regel), focus_date, sort_order.
+waiting_follow_up_date, recurrence (JSON-Regel), focus_date, sort_order,
+image_filename (Bildnotiz, siehe unten).
 
 **projects**: name, area, parent_project_id (Unterprojekte), notes,
 sort_order, archived.
@@ -61,6 +62,19 @@ sort_order, archived.
 **loans** (Ausleihe, eigener Bereich – kein Task): product, person, area,
 lent_date, returned_date (NULL solange draussen), notes. Kein geplantes
 Rückgabedatum, bewusst minimal (Produkt/Person/Datum + Notiz).
+
+## Bildnotiz
+
+Beim Anlegen oder Bearbeiten einer Aufgabe lässt sich ein Foto anhängen
+(`<input type="file" accept="image/*">` – Mobilbrowser bieten dabei sowohl
+Kamera als auch Galerie zur Auswahl an). Der Server skaliert das Bild beim
+Upload auf max. 1600px Kantenlänge herunter und speichert es als JPEG
+(Qualität 82, analog zum Foto-Resize im Familien-Dashboard) unter
+`server/uploads/` – **ausserhalb** von `web/`, damit es nicht am
+Passwortschutz vorbei über die unauthentifizierte Static-File-Route
+erreichbar ist. Ausgeliefert wird es über den authentifizierten Endpunkt
+`GET /api/tasks/{id}/image`. Pro Aufgabe genau ein Bild; erneutes Hochladen
+ersetzt das vorherige.
 
 **Projekte, Wiederholungsregeln, "Warten auf", Tags und Link sind aktuell
 nicht über die UI erreichbar** (siehe oben) – die Tabellen/API/Logik
@@ -77,6 +91,7 @@ gebraucht wird.
 | GET/PUT/DELETE | `/api/tasks/{id}` | Aufgabe lesen/ändern/löschen |
 | POST | `/api/tasks/{id}/complete` | Erledigen (+ Recurrence-Folgeaufgabe) |
 | POST | `/api/tasks/{id}/focus` | Fokus-Datum setzen/entfernen |
+| POST/GET/DELETE | `/api/tasks/{id}/image` | Bild hochladen (resized, JPEG) / abrufen / löschen |
 | GET/POST | `/api/projects`, `/api/projects/{id}` | Projekte inkl. Fortschritt/Deadline |
 | GET | `/api/search?q=` | Suche über Titel/Notizen/Tags/Personen |
 | GET | `/api/counts` | Kennzahlen für die Heute-Ansicht |
